@@ -1,0 +1,310 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <!-- ตั้งค่า viewport ให้เหมาะกับมือถือ -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wall's POS</title>
+    <!-- โหลด Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        /* ใช้ฟอนต์ Inter ที่อ่านง่าย */
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        /* ซ่อนลูกศรขึ้น/ลง ของช่อง input type=number */
+        input[type=number]::-webkit-inner-spin-button,
+        input[type=number]::-webkit-outer-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+        input[type=number] {
+            -moz-appearance: textfield;
+        }
+        /* คลาส 'hidden' ที่เราจะใช้สลับหน้า */
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body class="bg-gray-100 min-h-screen">
+
+    <!-- App Container -->
+    <div class="container mx-auto max-w-lg min-h-screen bg-white shadow-lg">
+
+        <!-- 1. ส่วน Header (หัวกระดาษ) -->
+        <header class="bg-blue-600 text-white p-4 sticky top-0 z-10 shadow-md">
+            <h1 id="page-title" class="text-2xl font-bold text-center">รายชื่อพนักงาน</h1>
+        </header>
+
+        <!-- พื้นที่เนื้อหาหลัก -->
+        <main class="p-4">
+
+            <!-- ============================================= -->
+            <!--   หน้า 1: รายชื่อพนักงาน (Default)            -->
+            <!-- ============================================= -->
+            <div id="page-employees">
+                <div class="space-y-3" id="employee-list">
+                    <!-- รายชื่อพนักงานจะถูกสร้างโดย JavaScript ที่นี่ -->
+                    <!-- ตัวอย่าง:
+                    <button class="w-full bg-white border border-gray-300 rounded-lg p-4 text-left text-lg font-medium shadow-sm hover:bg-gray-50 active:bg-gray-100 transition-all">
+                        พนักงาน A
+                    </button>
+                    -->
+                </div>
+            </div>
+
+            <!-- ============================================= -->
+            <!--   หน้า 2: รายละเอียด & ปุ่มเพิ่มบิล (Hidden)    -->
+            <!-- ============================================= -->
+            <div id="page-detail" class="hidden">
+                <button id="back-to-employees" class="text-blue-600 hover:underline mb-4">&larr; กลับไปหน้ารายชื่อ</button>
+                <div class="bg-gray-50 p-4 rounded-lg shadow-inner mb-6">
+                    <h2 class="text-xl font-semibold">พนักงาน:</h2>
+                    <h3 id="detail-employee-name" class="text-3xl font-bold text-blue-700"></h3>
+                </div>
+                
+                <!-- ปุ่มหลัก: ใหญ่และกดง่าย -->
+                <button id="show-billing-page" class="w-full bg-green-500 text-white text-xl font-bold py-6 px-4 rounded-lg shadow-lg hover:bg-green-600 active:bg-green-700 transition-all">
+                    (+) เพิ่มบิลสำหรับวันนี้
+                </button>
+            </div>
+
+            <!-- ============================================= -->
+            <!--   หน้า 3: หน้าคิดเงิน (Hidden)                 -->
+            <!-- ============================================= -->
+            <div id="page-billing" class="hidden">
+                <button id="back-to-detail" class="text-blue-600 hover:underline mb-4">&larr; กลับไปหน้ารายละเอียด</button>
+                
+                <div class="mb-4">
+                    <h2 class="text-lg">กำลังเปิดบิลสำหรับ: <span id="billing-employee-name" class="font-bold text-blue-700"></span></h2>
+                </div>
+
+                <!-- ฟอร์มรายการไอติม -->
+                <div id="billing-form" class="space-y-4">
+                    <!-- รายการไอติมจะถูกสร้างโดย JavaScript ที่นี่ -->
+                    <!-- ตัวอย่าง:
+                    <div class="flex items-center justify-between bg-white p-3 rounded-lg border">
+                        <div>
+                            <div class="text-lg font-medium">Cornetto</div>
+                            <div class="text-sm text-gray-500">25 บาท</div>
+                        </div>
+                        <input type="number" pattern="[0-9]*" class="w-24 text-right text-2xl font-bold p-2 border-b-2 border-gray-300 focus:border-blue-500 outline-none" placeholder="0">
+                    </div>
+                    -->
+                </div>
+            </div>
+
+        </main>
+
+        <!-- ส่วนสรุปยอดเงิน (จะแสดงเฉพาะหน้าคิดเงิน) -->
+        <footer id="billing-footer" class="hidden sticky bottom-0 bg-white border-t-2 border-blue-600 p-4 shadow-[0_-4px_10px_rgba(0,0,0,0.1)]">
+            <div class="flex justify-between items-center">
+                <span class="text-xl font-medium text-gray-700">ยอดรวม:</span>
+                <span id="total-price" class="text-4xl font-bold text-green-600">0</span>
+                <span class="text-2xl font-medium text-gray-700">บาท</span>
+            </div>
+        </footer>
+
+    </div> <!-- ปิด App Container -->
+
+
+    <script>
+        // =============================================
+        //   ฐานข้อมูล (จำลอง)
+        // =============================================
+        
+        // รายชื่อพนักงาน
+        const employees = [
+            'สมชาย ใจดี',
+            'สมหญิง มุ่งมั่น',
+            'วิรัตน์ ขยันยิ่ง'
+        ];
+
+        // รายการไอติมวอลล์
+        const iceCreams = [
+            { id: 'cornetto', name: 'คอร์นเนตโต', price: 25 },
+            { id: 'magnum', name: 'แม็กนั่ม', price: 40 },
+            { id: 'paddlepop', name: 'แพดเดิลป๊อป', price: 15 },
+            { id: 'solero', name: 'โซเลโร่', price: 20 },
+            { id: 'fruttare', name: 'ฟรุตตาเร่', price: 20 }
+        ];
+
+        // =============================================
+        //   ตัวแปรสถานะ (State)
+        // =============================================
+        let currentEmployee = null;
+
+        // =============================================
+        //   DOM Elements (ตัวแปรชี้ไปที่ HTML)
+        // =============================================
+        const pageTitle = document.getElementById('page-title');
+        
+        // Pages
+        const pageEmployees = document.getElementById('page-employees');
+        const pageDetail = document.getElementById('page-detail');
+        const pageBilling = document.getElementById('page-billing');
+        
+        // Page Employees
+        const employeeListDiv = document.getElementById('employee-list');
+
+        // Page Detail
+        const detailEmployeeName = document.getElementById('detail-employee-name');
+        const showBillingButton = document.getElementById('show-billing-page');
+        const backToEmployeesButton = document.getElementById('back-to-employees');
+
+        // Page Billing
+        const billingEmployeeName = document.getElementById('billing-employee-name');
+        const billingFormDiv = document.getElementById('billing-form');
+        const billingFooter = document.getElementById('billing-footer');
+        const totalPriceEl = document.getElementById('total-price');
+        const backToDetailButton = document.getElementById('back-to-detail');
+
+        // =============================================
+        //   ฟังก์ชันสลับหน้า
+        // =============================================
+
+        // ซ่อนทุกหน้า
+        function hideAllPages() {
+            pageEmployees.classList.add('hidden');
+            pageDetail.classList.add('hidden');
+            pageBilling.classList.add('hidden');
+            billingFooter.classList.add('hidden');
+        }
+
+        // แสดงหน้าเลือกพนักงาน
+        function showEmployeesPage() {
+            hideAllPages();
+            pageEmployees.classList.remove('hidden');
+            pageTitle.textContent = 'รายชื่อพนักงาน';
+            currentEmployee = null;
+        }
+
+        // แสดงหน้ารายละเอียด
+        function showDetailPage(employeeName) {
+            hideAllPages();
+            currentEmployee = employeeName;
+            detailEmployeeName.textContent = currentEmployee;
+            pageDetail.classList.remove('hidden');
+            pageTitle.textContent = 'รายละเอียดพนักงาน';
+        }
+
+        // แสดงหน้าคิดเงิน
+        function showBillingPage() {
+            hideAllPages();
+            billingEmployeeName.textContent = currentEmployee;
+            pageBilling.classList.remove('hidden');
+            billingFooter.classList.remove('hidden');
+            pageTitle.textContent = 'เปิดบิลใหม่';
+            
+            // ล้างค่าในฟอร์มและคำนวณใหม่ (ให้เป็น 0)
+            document.querySelectorAll('#billing-form input').forEach(input => {
+                input.value = '';
+            });
+            calculateTotal();
+        }
+
+        // =============================================
+        //   ฟังก์ชันสร้างเนื้อหา (Render)
+        // =============================================
+
+        // สร้างรายชื่อพนักงาน
+        function renderEmployeeList() {
+            employeeListDiv.innerHTML = ''; // ล้างของเก่า
+            employees.forEach(name => {
+                const button = document.createElement('button');
+                button.className = 'w-full bg-white border border-gray-300 rounded-lg p-4 text-left text-lg font-medium shadow-sm hover:bg-gray-50 active:bg-gray-100 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500';
+                button.textContent = name;
+                
+                // เมื่อกดปุ่ม
+                button.addEventListener('click', () => {
+                    showDetailPage(name);
+                });
+                
+                employeeListDiv.appendChild(button);
+            });
+        }
+
+        // สร้างฟอร์มไอติม
+        function renderBillingForm() {
+            billingFormDiv.innerHTML = ''; // ล้างของเก่า
+            iceCreams.forEach(item => {
+                const div = document.createElement('div');
+                div.className = 'flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200 shadow-sm';
+                
+                div.innerHTML = `
+                    <div>
+                        <div class="text-lg font-medium">${item.name}</div>
+                        <div class="text-sm text-gray-500">${item.price} บาท</div>
+                    </div>
+                    <!-- 
+                        นี่คือส่วนสำคัญที่แก้ปัญหา "จอมั่ว"
+                        - type="number" -> เปิดแป้นตัวเลข
+                        - pattern="[0-9]*" -> ช่วยให้บางเบราว์เซอร์เข้าใจว่าเอาแค่เลข
+                        - คลาส CSS (w-24, text-right, text-2xl) -> ทำให้ช่องใหญ่ กดง่าย ชัดเจน และจัดชิดขวา
+                    -->
+                    <input 
+                        type="number" 
+                        pattern="[0-9]*" 
+                        data-price="${item.price}" 
+                        class="w-24 text-right text-2xl font-bold p-2 border-b-2 border-gray-300 focus:border-blue-500 outline-none rounded-md" 
+                        placeholder="0"
+                        min="0"
+                    >
+                `;
+                
+                // เพิ่ม Event Listener ให้ช่อง input นี้
+                // ใช้ 'input' event เพื่อให้มันคำนวณใหม่ทุกครั้งที่พิมพ์
+                div.querySelector('input').addEventListener('input', calculateTotal);
+                
+                billingFormDiv.appendChild(div);
+            });
+        }
+
+        // =============================================
+        //   ฟังก์ชันคำนวณ
+        // =============================================
+        function calculateTotal() {
+            let total = 0;
+            const inputs = document.querySelectorAll('#billing-form input');
+            
+            inputs.forEach(input => {
+                const price = parseFloat(input.dataset.price);
+                const quantity = parseInt(input.value) || 0; // ถ้าช่องว่าง ให้เป็น 0
+                
+                total += price * quantity;
+            });
+            
+            // แสดงผลลัพธ์
+            totalPriceEl.textContent = total;
+        }
+
+
+        // =============================================
+        //   เชื่อมต่อปุ่มต่างๆ (Event Listeners)
+        // =============================================
+
+        // ปุ่มย้อนกลับ
+        backToEmployeesButton.addEventListener('click', showEmployeesPage);
+        backToDetailButton.addEventListener('click', () => {
+            // เรายังมีชื่อพนักงานเก็บไว้ใน `currentEmployee`
+            showDetailPage(currentEmployee);
+        });
+
+        // ปุ่มไปหน้าคิดเงิน
+        showBillingButton.addEventListener('click', showBillingPage);
+
+        // =============================================
+        //   เริ่มการทำงาน (Initialization)
+        // =============================================
+        
+        // เมื่อหน้าเว็บโหลดเสร็จ
+        document.addEventListener('DOMContentLoaded', () => {
+            renderEmployeeList();
+            renderBillingForm();
+            showEmployeesPage(); // เริ่มที่หน้าแรก
+        });
+
+    </script>
+</body>
+</html>
