@@ -44,6 +44,9 @@
             <!--   หน้า 1: รายชื่อพนักงาน (Default)            -->
             <!-- ============================================= -->
             <div id="page-employees">
+                <div id="loading-message" class="text-center text-gray-500 mt-10">
+                    <p>กำลังโหลดข้อมูลพนักงาน...</p>
+                </div>
                 <div class="space-y-3" id="employee-list">
                     <!-- รายชื่อพนักงานจะถูกสร้างโดย JavaScript ที่นี่ -->
                     <!-- ตัวอย่าง:
@@ -111,24 +114,19 @@
 
     <script>
         // =============================================
-        //   ฐานข้อมูล (จำลอง)
+        //   ฐานข้อมูล (ดึงจาก Google Sheet)
         // =============================================
         
-        // รายชื่อพนักงาน
-        const employees = [
-            'สมชาย ใจดี',
-            'สมหญิง มุ่งมั่น',
-            'วิรัตน์ ขยันยิ่ง'
-        ];
+        // !!!!!! สำคัญมาก !!!!!!
+        // ให้วาง URL ที่ได้จากการ Deploy Google Apps Script ลงในนี้
+        // (ดูขั้นตอนที่ 3 ในคำอธิบาย)
+        const GOOGLE_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbwLH82fONN6oaePt-Ol12OOIZCAyUEX7pQV-BSP6FBoiHLZaIAzXTbD79KJQh7KvWel8A/exec';
 
-        // รายการไอติมวอลล์
-        const iceCreams = [
-            { id: 'cornetto', name: 'คอร์นเนตโต', price: 25 },
-            { id: 'magnum', name: 'แม็กนั่ม', price: 40 },
-            { id: 'paddlepop', name: 'แพดเดิลป๊อป', price: 15 },
-            { id: 'solero', name: 'โซเลโร่', price: 20 },
-            { id: 'fruttare', name: 'ฟรุตตาเร่', price: 20 }
-        ];
+        // เราจะเก็บข้อมูลที่ดึงมาได้ไว้ในตัวแปรนี้
+        let appData = {
+            employees: [],
+            iceCreams: []
+        };
 
         // =============================================
         //   ตัวแปรสถานะ (State)
@@ -147,6 +145,7 @@
         
         // Page Employees
         const employeeListDiv = document.getElementById('employee-list');
+        const loadingMessage = document.getElementById('loading-message'); // เพิ่มตัวแปรสำหรับข้อความ loading
 
         // Page Detail
         const detailEmployeeName = document.getElementById('detail-employee-name');
@@ -209,8 +208,15 @@
         // =============================================
 
         // สร้างรายชื่อพนักงาน
-        function renderEmployeeList() {
+        // (แก้ไข) รับ
+        function renderEmployeeList(employees) {
             employeeListDiv.innerHTML = ''; // ล้างของเก่า
+            
+            if (employees.length === 0) {
+                employeeListDiv.innerHTML = '<p class="text-center text-red-500">ไม่พบข้อมูลพนักงานใน Google Sheet</p>';
+                return;
+            }
+
             employees.forEach(name => {
                 const button = document.createElement('button');
                 button.className = 'w-full bg-white border border-gray-300 rounded-lg p-4 text-left text-lg font-medium shadow-sm hover:bg-gray-50 active:bg-gray-100 transition-all focus:outline-none focus:ring-2 focus:ring-blue-500';
@@ -226,8 +232,14 @@
         }
 
         // สร้างฟอร์มไอติม
-        function renderBillingForm() {
+        function renderBillingForm(iceCreams) {
             billingFormDiv.innerHTML = ''; // ล้างของเก่า
+            
+            if (iceCreams.length === 0) {
+                billingFormDiv.innerHTML = '<p class="text-center text-red-500">ไม่พบข้อมูลไอติมใน Google Sheet</p>';
+                return;
+            }
+
             iceCreams.forEach(item => {
                 const div = document.createElement('div');
                 div.className = 'flex items-center justify-between bg-white p-3 rounded-lg border border-gray-200 shadow-sm';
@@ -297,12 +309,71 @@
         // =============================================
         //   เริ่มการทำงาน (Initialization)
         // =============================================
+
+        // (แก้ไข) เพิ่มฟังก์ชันดึงข้อมูล
+        async function loadDataAndInitialize() {
+            if (GOOGLE_SCRIPT_URL === 'YOUR_DEPLOYED_APPS_SCRIPT_URL_HERE') {
+                loadingMessage.innerHTML = `
+                    <p class="text-red-600 font-bold text-center">
+                        !! ข้อผิดพลาด !!<br>
+                        กรุณาใส่ URL ของ Google Apps Script<br>
+                        ในตัวแปร GOOGLE_SCRIPT_URL ในไฟล์ HTML
+                    </p>
+                `;
+                return;
+            }
+
+            try {
+                const response = await fetch(GOOGLE_SCRIPT_URL);
+                if (!response.ok) {
+                    throw new Error('Network response was not ok');
+                }
+                
+                const data = await response.json();
+
+                if (data.error) {
+                    throw new Error(data.error);
+                }
+
+                // ซ่อนข้อความ Loading
+                loadingMessage.classList.add('hidden');
+
+                // เก็บข้อมูลลงตัวแปร
+                appData.employees = data.employees || [];
+                appData.iceCreams = data.iceCreams || [];
+
+                // สร้างหน้าเว็บ
+                renderEmployeeList(appData.employees);
+                renderBillingForm(appData.iceCreams);
+                showEmployeesPage(); // เริ่มที่หน้าแรก
+
+            } catch (error) {
+                console.error('Fetch error:', error);
+                loadingMessage.innerHTML = `
+                    <p class="text-red-600 font-bold text-center">
+                        เกิดข้อผิดพลาดในการโหลดข้อมูล:<br>
+                        ${error.message}<br>
+                        (ตรวจสอบ Console หรือเช็คว่า Deploy Apps Script ถูกต้องหรือไม่)
+                    </p>
+                `;
+            }
+        }
         
         // เมื่อหน้าเว็บโหลดเสร็จ
         document.addEventListener('DOMContentLoaded', () => {
-            renderEmployeeList();
-            renderBillingForm();
-            showEmployeesPage(); // เริ่มที่หน้าแรก
+            // (แก้ไข) เปลี่ยนจากการ render ทันที เป็นการเรียกฟังก์ชันดึงข้อมูลก่อน
+            loadDataAndInitialize();
+
+            // เชื่อมต่อปุ่มต่างๆ
+            // ปุ่มย้อนกลับ
+            backToEmployeesButton.addEventListener('click', showEmployeesPage);
+            backToDetailButton.addEventListener('click', () => {
+                // เรายังมีชื่อพนักงานเก็บไว้ใน `currentEmployee`
+                showDetailPage(currentEmployee);
+            });
+
+            // ปุ่มไปหน้าคิดเงิน
+            showBillingButton.addEventListener('click', showBillingPage);
         });
 
     </script>
