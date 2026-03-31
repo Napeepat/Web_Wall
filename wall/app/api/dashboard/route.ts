@@ -17,22 +17,29 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
     }
 
-    if (role === 'wallman') {
-      // ดึงข้อมูลดิบของ Wallman
+    if (role === 'wallman') { // ดึงข้อมูลดิบของ Wallman
       const { data: orders, error } = await supabaseAdmin
         .from('orders')
         .select('id, order_date, total_amount, paid_amount, status_order')
         .eq('wallman_id', userId)
-        .in('status_order', ['confirmed', 'completed'])
+        .in('status_order', ['confirmed', 'completed','pending']) // 
         .order('order_date', { ascending: false });
 
       if (error) throw error;
 
-      return NextResponse.json({ orders });
+      // ดึงค่า current_debt จากตาราง profiles ของผู้ใช้
+      const { data: profile } = await supabaseAdmin
+        .from('profiles')
+        .select('current_debt')
+        .eq('id', userId)
+        .single();
+
+      return NextResponse.json({ orders,
+                                 current_debt: profile?.current_debt || 0
+      });
     }
 
-    if (role === 'admin') {
-      // ดึงข้อมูลดิบของ Admin
+    if (role === 'admin') { // ดึงข้อมูลดิบของ Admin
       const { data: orders, error } = await supabaseAdmin
         .from('orders')
         .select(`
@@ -44,7 +51,13 @@ export async function GET(req: Request) {
 
       if (error) throw error;
 
-      return NextResponse.json({ orders });
+      // คำนวณยอดหนี้รวมของทุกคนจากตาราง profiles โดยตรง
+      const { data: profiles } = await supabaseAdmin.from('profiles').select('current_debt');
+      const totalDebtAll = profiles?.reduce((sum, p) => sum + Number(p.current_debt || 0), 0) || 0;
+
+      return NextResponse.json({ orders,
+                                 totalDebtAll
+       });
     }
 
     return NextResponse.json({ error: "Invalid role" }, { status: 400 });

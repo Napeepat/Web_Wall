@@ -4,7 +4,6 @@
 import { useState, useEffect } from "react";
 import BackButton from "@/app/components/allButton/backIsOpen";
 
-// --- เพิ่ม Interfaces สำหรับแทนที่ any ---
 interface Product {
     id: string;
     nameproduct: string;
@@ -22,6 +21,8 @@ interface OrderInfo {
     id: string | number;
     profiles?: { name: string };
     order_items?: OrderItemInfo[];
+    status_order?: string;          // รับ status
+    paid_amount?: number;           // รับค่า paid_amount
 }
 
 interface EditOrderModalProps {
@@ -29,12 +30,12 @@ interface EditOrderModalProps {
     onClose: () => void;
     onSuccess: () => void;
 }
-// ------------------------------------
 
-export default function EditOrderModal({ order, onClose, onSuccess }: EditOrderModalProps) {
+export default function EditOrderModal_({ order, onClose, onSuccess }: EditOrderModalProps) {
     const [products, setProducts] = useState<Product[]>([]);
     const [cart, setCart] = useState<{ [key: string]: number }>({});
     const [isSubmitting, setIsSubmitting] = useState(false);
+    const [paid_amount, setPaidAmount] = useState<number>(order.paid_amount || 0);           // เก็บจำนวนเงินที่ชำระ ถ้ามี (ถ้าไม่มีให้เป็น 0)
 
     useEffect(() => {
         const fetchProducts = async () => {
@@ -95,12 +96,14 @@ export default function EditOrderModal({ order, onClose, onSuccess }: EditOrderM
                 body: JSON.stringify({
                     order_id: order.id,
                     total_amount: calculateTotal(),
+                    paid_amount: paid_amount, // ส่งยอดชำระที่อาจจะแก้ไขไป
+                    status_order: 'pending', // บังคับส่งเป็น pending 
                     items: orderItems
                 })
             });
 
             if (res.ok) {
-                alert("บันทึกและยืนยันบิลเรียบร้อย!");
+                alert("บันทึกการแก้ไขบิลเรียบร้อย!");
                 onSuccess(); // รีเฟรชหน้าประวัติ
             } else {
                 alert("เกิดข้อผิดพลาด");
@@ -118,13 +121,17 @@ export default function EditOrderModal({ order, onClose, onSuccess }: EditOrderM
                 <div className="flex items-center justify-between gap-4 px-4 h-full">
                     <BackButton onClick={onClose} />
                     <div className="text-sm font-bold text-gray-800">
-                        ยืนยันบิล: {order.profiles?.name}
+                        แก้ไขบิล {order.profiles?.name}
                     </div>
+
+                    {/*ราคารวม*/}
                     <div className="text-right">
-                        <span className="text-xl font-bold text-blue-600">
+                        <span className="text-sm text-gray-500 block">ราคารวม</span>
+                        <span className="text-2xl font-bold text-blue-600">
                             {calculateTotal().toLocaleString(undefined, { minimumFractionDigits: 2 })}
                         </span>
                     </div>
+                    
                 </div>
             </div>
 
@@ -148,11 +155,27 @@ export default function EditOrderModal({ order, onClose, onSuccess }: EditOrderM
                             </div>
                         );
                     })}
+
+                    {/*paid_amount*/}
+                    <div className="mt-4 bg-gray-50 p-4 rounded-xl border border-gray-200 shadow-sm">
+                        <div className="relative">     
+                            <input
+                                type="number"
+                                placeholder="จำนวนเงินที่ชำระ"
+                                value={paid_amount === 0 ? "" : paid_amount} 
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setPaidAmount(val === "" ? 0 : parseFloat(val)); // ถ้าช่องว่างเปล่าให้ค่าเป็น 0 ถ้ามีตัวเลขให้แปลงเป็นตัวเลข
+                                }}
+                                className="block w-full pl-10 pr-4 py-3 bg-white border border-gray-300 rounded-lg text-lg font-bold text-blue-600 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all shadow-inner hide-arrows"
+                            />
+                        </div>
+                    </div>
                 </div>
             </div>
 
             <div className="fixed bottom-0 left-0 right-0 p-4 bg-white border-t border-gray-200 shadow-lg z-60">
-                <button onClick={handleSave} disabled={isSubmitting || Object.keys(cart).length === 0} className="w-full max-w-2xl mx-auto py-3 rounded-lg font-bold text-white bg-green-500 hover:bg-green-600 flex justify-center">
+                <button onClick={handleSave} disabled={isSubmitting || Object.keys(cart).length === 0} className="w-full max-w-2xl mx-auto py-3 rounded-lg font-bold text-white bg-blue-600 hover:bg-blue-700 flex justify-center">
                     {isSubmitting ? 'กำลังบันทึก...' : `ยืนยันบิล (${Object.keys(cart).length} รายการ)`}
                 </button>
             </div>

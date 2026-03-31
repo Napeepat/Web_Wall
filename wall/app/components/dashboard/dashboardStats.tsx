@@ -1,3 +1,4 @@
+// app/components/dashboard/dashboardStats.tsx
 "use client";
 
 import { useState, useEffect } from "react";
@@ -38,10 +39,11 @@ interface DashboardStatsData {
     netDailyProfit: number;
 }
 
-// ฟังก์ชันหาเวลาเที่ยงคืนและวันที่ 1 ของเดือน ตามเวลาประเทศไทย
-function getThaiTimeBounds() {
+// สร้าง String เพื่อใช้เปรียบเทียบเวลาตรงๆ แบบ 'YYYY-MM-DD HH:mm:ss'
+function getLocalTimeBounds() {
     const now = new Date();
     
+    // ดึงส่วนประกอบของวันที่ปัจจุบันตามเวลาไทย
     const formatter = new Intl.DateTimeFormat('en-US', {
         timeZone: 'Asia/Bangkok',
         year: 'numeric',
@@ -49,14 +51,14 @@ function getThaiTimeBounds() {
         day: '2-digit'
     });
     
-    const [{ value: month }, , { value: day }, , { value: year }] = formatter.formatToParts(now);
-    
-    const startOfDayThai = new Date(`${year}-${month}-${day}T00:00:00+07:00`);
-    const startOfMonthThai = new Date(`${year}-${month}-01T00:00:00+07:00`);
+    const parts = formatter.formatToParts(now);
+    const year = parts.find(p => p.type === 'year')?.value;
+    const month = parts.find(p => p.type === 'month')?.value;
+    const day = parts.find(p => p.type === 'day')?.value;
     
     return {
-        startOfDayUTC: startOfDayThai.toISOString(),
-        startOfMonthUTC: startOfMonthThai.toISOString()
+        startOfDay: `${year}-${month}-${day} 00:00:00`, // จุดเริ่มต้นของวันนี้
+        startOfMonth: `${year}-${month}-01 00:00:00`    // จุดเริ่มต้นของเดือนนี้
     };
 }
 
@@ -72,16 +74,16 @@ export default function DashboardStats() {
             try {
                 const res = await fetch(`/api/dashboard?userId=${userProfile.id}&role=${role}`);
                 if (res.ok) {
-                    const { orders } = await res.json();
-                    const { startOfDayUTC, startOfMonthUTC } = getThaiTimeBounds();
+                    const { orders, current_debt, totalDebtAll } = await res.json();
+                    const { startOfDay, startOfMonth } = getLocalTimeBounds();
 
                     // เตรียม Object สำหรับเก็บค่าสถิติ
                     const newStats: DashboardStatsData = {
                         monthlySales: 0,
-                        totalDebt: 0,
+                        totalDebt: Number(current_debt) || 0,     // ใช้หนี้จาก Data ตรงๆ เลย (ของ Wallman)
                         commission: 0,
                         restockHistory: [],
-                        totalDebtAll: 0,
+                        totalDebtAll: Number(totalDebtAll) || 0,  // ใช้หนี้รวมจาก Data ตรงๆ เลย (ของ Admin)
                         dailySales: 0,
                         dailyProfit: 0,
                         monthlyProfit: 0,
@@ -90,23 +92,20 @@ export default function DashboardStats() {
 
                     if (role === 'wallman') {
                         orders?.forEach((o: OrderType) => {
-                            const unpaid = o.total_amount - o.paid_amount;
-                            if (unpaid > 0) newStats.totalDebt += unpaid;
 
-                            // เติม Z ให้วันที่เพื่อป้องกันความผิดพลาดจาก Timezone
-                            const orderDateUTC = o.order_date.endsWith('Z') ? o.order_date : o.order_date + 'Z';
-                            const orderDateObj = new Date(orderDateUTC).toISOString();
+                        const orderDateStr = o.order_date; // เวลาจาก API
 
-                            if (orderDateObj >= startOfMonthUTC) {
+                            if (orderDateStr >= startOfMonth) {
                                 newStats.monthlySales += o.total_amount;
                                 newStats.restockHistory.push({ 
                                     id: o.id, 
-                                    date: orderDateUTC, 
+                                    date: orderDateStr, 
                                     amount: o.total_amount 
                                 });
                             }
                         });
-                        newStats.commission = newStats.monthlySales * 0.10;
+                        // ค่าคอม
+                        newStats.commission = newStats.monthlySales * 0.06;
                     }
 
                     if (role === 'admin') {
@@ -114,15 +113,11 @@ export default function DashboardStats() {
                         let monthlyCost = 0;
 
                         orders?.forEach((o: OrderType) => {
-                            const unpaid = o.total_amount - o.paid_amount;
-                            if (unpaid > 0) newStats.totalDebtAll += unpaid;
 
-                            // เติม Z ให้วันที่
-                            const orderDateUTC = o.order_date.endsWith('Z') ? o.order_date : o.order_date + 'Z';
-                            const orderDateObj = new Date(orderDateUTC).toISOString();
+                        const orderDateStr = o.order_date;
 
-                            const isThisMonth = orderDateObj >= startOfMonthUTC;
-                            const isToday = orderDateObj >= startOfDayUTC;
+                            const isThisMonth = orderDateStr >= startOfMonth;
+                            const isToday = orderDateStr >= startOfDay;
 
                             // คำนวณต้นทุน
                             const cost = o.order_items?.reduce((sum: number, item: OrderItemType) => sum + (item.quantity * item.cost_at_sale), 0) || 0;
@@ -154,7 +149,7 @@ export default function DashboardStats() {
         fetchStats();
     }, [userProfile, role]);
 
-    if (loading) return <div className="text-center p-4 text-gray-500 animate-pulse">กำลังโหลดสถิติ...</div>;
+    if (loading) return <div className="text-center p-4 text-gray-500 animate-pulse">กำลังโหลด</div>;
     if (!stats) return null;
 
     // --- มุมมอง Wallman ---
@@ -162,87 +157,77 @@ export default function DashboardStats() {
         return (
             <div className="space-y-6">
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+
+                    {/* ยอดขายเดือนนี้ */}
                     <div className="bg-white p-4 rounded-xl shadow-sm border border-blue-100">
-                        <div className="text-sm text-gray-500 mb-1">ยอดขายเดือนนี้</div>
+                        <div className="text-sm text-gray-500 mb-1">ยอดซื้อเดือนนี้</div>
                         <div className="text-xl font-bold text-blue-600">{stats.monthlySales.toLocaleString()}</div>
                     </div>
+
+                    {/* ยอดค้างชำระ */}
                     <div className="bg-white p-4 rounded-xl shadow-sm border border-red-100">
                         <div className="text-sm text-gray-500 mb-1">ยอดค้างชำระ</div>
                         <div className="text-xl font-bold text-red-600">{stats.totalDebt.toLocaleString()}</div>
                     </div>
-                    <div className="bg-white p-4 rounded-xl shadow-sm border border-green-100">
-                        <div className="text-sm text-gray-500 mb-1">ค่าคอมโดยประมาณ</div>
-                        <div className="text-xl font-bold text-green-600">{stats.commission.toLocaleString()}</div>
-                    </div>
+
+                    {/* ค่าคอมโดยประมาณ */}
+                    {/*    <div className="bg-white p-4 rounded-xl shadow-sm border border-green-100">
+                            <div className="text-sm text-gray-500 mb-1">ค่าคอมโดยประมาณ</div>
+                            <div className="text-xl font-bold text-green-600">{stats.commission.toLocaleString()}</div>
+                        </div> */}
+
+                    {/* จำนวนครั้งลงของเดือนนี้ */}
                     <div className="bg-white p-4 rounded-xl shadow-sm border border-orange-100">
                         <div className="text-sm text-gray-500 mb-1">ลงของเดือนนี้</div>
                         <div className="text-xl font-bold text-orange-600">{stats.restockHistory.length} ครั้ง</div>
                     </div>
+
                 </div>
 
-                <div className="bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden">
-                    <div className="px-4 py-3 bg-gray-50 border-b border-gray-200 font-bold text-gray-700">
-                        ตารางลงของเดือนนี้
-                    </div>
-                    <div className="p-0 overflow-x-auto">
-                        <table className="w-full text-sm text-left">
-                            <thead className="bg-white border-b border-gray-100 text-gray-500">
-                                <tr>
-                                    <th className="px-4 py-2 font-medium">วันที่</th>
-                                    <th className="px-4 py-2 font-medium text-right">ยอดเบิก (บาท)</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {stats.restockHistory.length === 0 ? (
-                                    <tr><td colSpan={2} className="px-4 py-4 text-center text-gray-400">ยังไม่มีการลงของในเดือนนี้</td></tr>
-                                ) : (
-                                    stats.restockHistory.map((item: RestockItem) => (
-                                        <tr key={item.id} className="border-b border-gray-50 last:border-0 hover:bg-gray-50">
-                                            <td className="px-4 py-3 text-gray-700">
-                                                {new Date(item.date).toLocaleDateString('th-TH', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} น.
-                                            </td>
-                                            <td className="px-4 py-3 text-right font-medium text-gray-800">
-                                                {item.amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
-                                            </td>
-                                        </tr>
-                                    ))
-                                )}
-                            </tbody>
-                        </table>
-                    </div>
-                </div>
+                {/* ตารางลงของเดือนนี้ */}
+                
+
             </div>
         );
     }
 
     // --- มุมมอง Admin ---
     return (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-            <div className="bg-white p-4 rounded-xl shadow-sm border border-red-100 col-span-2 md:col-span-1">
-                <div className="text-sm text-gray-500 mb-1">ยอดค้างของทุกคนรวม</div>
-                <div className="text-2xl font-bold text-red-600">{stats.totalDebtAll.toLocaleString()}</div>
-            </div>
-            
+        <div className="grid grid-cols-2 gap-4">
+
+            {/* ยอดขายรายวัน */}
             <div className="bg-white p-4 rounded-xl shadow-sm border border-blue-100">
-                <div className="text-sm text-gray-500 mb-1">ยอดขายรายวัน (วันนี้)</div>
+                <div className="text-sm text-gray-500 mb-1">ยอดขายรายวัน</div>
                 <div className="text-xl font-bold text-blue-600">{stats.dailySales.toLocaleString()}</div>
             </div>
-            
+
+            {/* ยอดขายรายเดือน */}
             <div className="bg-white p-4 rounded-xl shadow-sm border border-indigo-100">
                 <div className="text-sm text-gray-500 mb-1">ยอดขายรายเดือน</div>
                 <div className="text-xl font-bold text-indigo-600">{stats.monthlySales.toLocaleString()}</div>
             </div>
+
+
             
+            {/* กำไรวันนี้ */}
             <div className="bg-white p-4 rounded-xl shadow-sm border border-green-100">
-                <div className="text-sm text-gray-500 mb-1">กำไรวันนี้ (ยังไม่หักค่าไฟ)</div>
+                <div className="text-sm text-gray-500 mb-1">กำไรวันนี้</div>
                 <div className="text-xl font-bold text-green-500">{stats.dailyProfit.toLocaleString()}</div>
             </div>
             
+            {/* กำไรเดือนนี้ */}
             <div className="bg-white p-4 rounded-xl shadow-sm border border-emerald-100">
                 <div className="text-sm text-gray-500 mb-1">กำไรเดือนนี้</div>
                 <div className="text-xl font-bold text-emerald-600">{stats.monthlyProfit.toLocaleString()}</div>
             </div>
 
+            {/* ยอดค้างของทุกคนรวม */}
+            <div className="bg-white p-4 rounded-xl shadow-sm border border-red-100 col-span-2 md:col-span-1">
+                <div className="text-sm text-gray-500 mb-1">ยอดค้างของทุกคนรวม</div>
+                <div className="text-2xl font-bold text-red-600">{stats.totalDebtAll.toLocaleString()}</div>
+            </div>
+
+            {/* กำไรสุทธิวันนี้ */}
             <div className="bg-linear-to-br from-green-500 to-emerald-600 p-4 rounded-xl shadow-sm text-white col-span-2 md:col-span-1">
                 <div className="text-sm text-green-100 mb-1">กำไรสุทธิวันนี้ (หักค่าไฟ 200)</div>
                 <div className="text-2xl font-bold">

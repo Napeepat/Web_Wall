@@ -25,6 +25,7 @@ export interface OrderHistory {
     order_items: OrderItem[];
 }
 
+// 1. เพิ่ม Interface สำหรับข้อมูล Profile
 interface Profile {
     id: string;
     name: string;
@@ -33,19 +34,17 @@ interface Profile {
 
 export default function HistoryButton_() {
     const { userProfile, role } = useAuth();
-    const [isOpen, setIsOpen] = useState(false);                    // ควบคุมการเปิด-ปิดหน้าประวัติ
-    const [history, setHistory] = useState<OrderHistory[]>([]);     // เก็บข้อมูลประวัติการเบิกสินค้า
+    const [isOpen, setIsOpen] = useState(false);                    
+    const [isOpenForFilter, setIsOpenForFilter] = useState(false);
+    const [history, setHistory] = useState<OrderHistory[]>([]);     
     const [loading, setLoading] = useState(false);
 
-    // State สำหรับเก็บข้อมูลพนักงานและค่า Filter
-    const [isOpenForFilter, setIsOpenForFilter] = useState(false);  // ควบคุมการเปิด-ปิด dropdown filter
+    // 2. เพิ่ม State สำหรับเก็บข้อมูลพนักงานและค่า Filter
     const [wallmen, setWallmen] = useState<Profile[]>([]);
-    const [selectedWallmanName, setSelectedWallmanName] = useState<string>("");
+    const [selectedWallmanName, setSelectedWallmanName] = useState<string>(""); 
 
-    // State สำหรับเก็บรายละเอียดบิลที่เลือก
     const [selectedDetail, setSelectedDetail] = useState<OrderHistory | null>(null);
     
-    // ฟังก์ชันดึงประวัติการเบิกสินค้า
     const fetchHistory = useCallback(async () => {
         if (!userProfile?.id || !role) return;
         setLoading(true);
@@ -62,21 +61,19 @@ export default function HistoryButton_() {
         }
     }, [userProfile?.id, role]);
 
-    
-
     useEffect(() => {
         if (isOpen) {
             fetchHistory();
 
-            // ถ้าเป็นแอดมิน ดึงรายชื่อพนักงานมาแสดงใน filter 
+            // 3. ดึงรายชื่อ Wallman สำหรับ Admin เพื่อนำมาแสดงใน Dropdown
             if (role === 'admin') {
                 const fetchWallmen = async () => {
                     try {
                         const res = await fetch('/api/profile');
                         if (res.ok) {
                             const data: Profile[] = await res.json();
-                            const allWallman = data.filter(user => user.role === 'wallman');
-                            setWallmen(allWallman);
+                            const onlyWallmen = data.filter(user => user.role === 'wallman');
+                            setWallmen(onlyWallmen);
                         }
                     } catch (err) {
                         console.error("Error fetching profiles:", err);
@@ -87,8 +84,7 @@ export default function HistoryButton_() {
         }
     }, [isOpen, fetchHistory, role]);
 
-    
-    const getStatusDisplay = (status: string) => { // ฟังก์ชันแปลงสถานะเป็นข้อความและสี
+    const getStatusDisplay = (status: string) => { 
         switch (status) {
             case 'pending': return { 
                 text: 'รอยืนยัน', 
@@ -118,7 +114,7 @@ export default function HistoryButton_() {
         }
     };
 
-    // กรองข้อมูล history ตามพนักงานที่เลือก ถ้าค่าว่างคือแสดงทั้งหมด
+    // 4. กรองข้อมูล history ตามพนักงานที่เลือก (ถ้าค่าว่างคือแสดงทั้งหมด)
     const filteredHistory = selectedWallmanName 
         ? history.filter(order => order.profiles?.name === selectedWallmanName)
         : history;
@@ -137,18 +133,20 @@ export default function HistoryButton_() {
                     
                     {/* Navbar */}
                     <div className="sticky top-0 z-50 bg-background shadow-sm " style={{ height: "var(--navbar-height)" }} >
-                        <div className="flex items-center gap-4 px-4 h-full">
+                        <div className="flex items-center gap-4 px-4 h-full relative">
                             <BackButton onClick={() => setIsOpen(false)} />
-                            <h2 className="text-lg font-bold text-gray-800">ประวัติย้อนหลัง</h2>
+                            <h2 className="text-lg font-bold text-gray-800">
+                                ประวัติย้อนหลัง {selectedWallmanName && <span className="text-blue-600 text-sm">({selectedWallmanName})</span>}
+                            </h2>
                         
-
                             {/* filter กรองข้อมูล สำหรับแอดมิน  */}
                             {role === 'admin' && (
                                 <div className="flex-1 text-right">
                                     <button
                                         onClick={() => setIsOpenForFilter(!isOpenForFilter)}
+                                        className={`p-1.5 rounded-lg transition-colors ${selectedWallmanName ? 'bg-blue-100 text-blue-600' : 'text-gray-600 hover:bg-gray-100'}`}
                                     >
-                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 inline-block text-gray-600 hover:text-gray-800 transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <svg xmlns="http://www.w3.org/2000/svg" className="w-5 h-5 inline-block transition-colors" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6a1 1 0 00-.293.707V19l-4-4v-.293a1 1 0 00-.293-.707l-6.414-6A1 1 0 013 6.586V4z" />
                                         </svg>
                                     </button>
@@ -164,10 +162,12 @@ export default function HistoryButton_() {
                         {loading ? (
                             <div className="text-center text-gray-500 mt-10">กำลังโหลดข้อมูล...</div>
                         ) : filteredHistory.length === 0 ? (
-                            <div className="text-center text-gray-500 mt-10">ไม่มีประวัติการทำรายการ</div>
+                            <div className="text-center text-gray-500 mt-10">
+                                {history.length === 0 ? "ไม่มีประวัติการทำรายการ" : "ไม่พบประวัติของพนักงานที่เลือก"}
+                            </div>
                         ) : ( 
 
-                            // แสดงรายการประวัติการเบิกสินค้า
+                            // ใช้ filteredHistory ในการแสดงผลแทน history เดิม
                             <div className="space-y-1 max-w-3xl mx-auto">
                                 {filteredHistory.map((order) => {
                                     const statusObj = getStatusDisplay(order.status_order);
@@ -175,19 +175,11 @@ export default function HistoryButton_() {
 
                                     return (
                                         <div key={order.id} 
-                                            //className="bg-white rounded-lg border border-gray-200 shadow-sm overflow-hidden active:scale-[0.98] transition-transform cursor-pointer"
                                             onClick={() => setSelectedDetail(order)}
-                                            //className={`group p-5 rounded-2xl border shadow-sm hover:shadow-md transition-all duration-200 cursor-pointer active:scale-[0.98] flex flex-col sm:flex-row justify-between gap-5 ${statusObj.cardBg}`}
                                             className={`group p-5 rounded-lg border shadow-sm overflow-hidden active:scale-[0.98] transition-transform cursor-pointer    ${statusObj.cardBg}`}
                                         >
-
-                                            {/* หัวบิล (คลิกเพื่อดูรายละเอียดได้) */}
                                             <div className="group p-3 bg-white border border-gray-100 rounded-2xl shadow-sm hover:shadow-md hover:border-blue-100 transition-all duration-200 cursor-pointer flex flex-col sm:flex-row justify-between gap-5">
-    
-                                                {/* ฝั่งซ้าย: ข้อมูลลูกค้าและเวลา */}
                                                 <div className="flex flex-col gap-3">
-
-                                                    {/* ชื่อและสถานะ */}
                                                     <div className="flex items-center gap-3">
                                                         <h3 className="text-lg font-bold text-gray-900">
                                                             {order.profiles?.name || 'ลูกค้าทั่วไป'}
@@ -197,7 +189,6 @@ export default function HistoryButton_() {
                                                         </div>
                                                     </div>
 
-                                                    {/* วันที่และเวลา */}
                                                     <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-gray-500">
                                                         <div className="flex items-center gap-1.5">
                                                             <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -213,7 +204,6 @@ export default function HistoryButton_() {
                                                         </div>
                                                     </div>
 
-                                                    {/* เวลารับของ */}
                                                     {order.pickup_time && (
                                                         <div className="inline-flex items-center gap-1.5 w-fit px-3 py-1.5 bg-blue-50/80 border border-blue-100 text-blue-700 rounded-lg text-sm font-medium mt-1">
                                                             <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
@@ -224,10 +214,7 @@ export default function HistoryButton_() {
                                                     )}
                                                 </div>
 
-                                                {/* ฝั่งขวา: ข้อมูลยอดเงิน */}
                                                 <div className="flex flex-col sm:items-end justify-center gap-3 pt-4 sm:pt-0 border-t sm:border-t-0 border-gray-100">
-                                                    
-                                                    {/* ยอดรวม */}
                                                     <div className="text-left sm:text-right">
                                                         <p className="text-xs text-gray-500 mb-0.5 font-medium">ยอดรวมสุทธิ</p>
                                                         <div className="text-2xl font-bold text-gray-900 tracking-tight">
@@ -235,15 +222,12 @@ export default function HistoryButton_() {
                                                         </div>
                                                     </div>
 
-                                                    {/* รายละเอียดการชำระเงิน */}
                                                     <div className="flex flex-wrap sm:justify-end gap-2">
-                                                        {/* ป้ายชำระแล้ว */}
                                                         <div className="flex items-center gap-1.5 px-2.5 py-1 bg-emerald-50 text-emerald-700 rounded-md text-xs font-medium border border-emerald-100">
                                                             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500"></span>
                                                             ชำระแล้ว ฿{order.paid_amount.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                                         </div>
                                                         
-                                                        {/* ป้ายยอดค้าง */}
                                                         {(order.total_amount - order.paid_amount) > 0 && (
                                                             <div className="flex items-center gap-1.5 px-2.5 py-1 bg-rose-50 text-rose-700 rounded-md text-xs font-medium border border-rose-100">
                                                                 <span className="w-1.5 h-1.5 rounded-full bg-rose-500"></span>
@@ -251,11 +235,8 @@ export default function HistoryButton_() {
                                                             </div>
                                                         )}
                                                     </div>
-
                                                 </div>
                                             </div>
-
-
                                         </div>
                                     );
                                 })}
@@ -272,15 +253,18 @@ export default function HistoryButton_() {
                 onRefresh={fetchHistory}/>
             )}
 
-            {/* Dropdown Filter */}
+            {/* 5. Dropdown Filter UI */}
             {isOpenForFilter && (
                 <>
                     <div 
-                        className="fixed inset-0 z-50" 
+                        className="fixed inset-0 z-[60]" 
                         onClick={() => setIsOpenForFilter(false)}  
                     />
                     <div className="absolute top-14 right-4 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-100 py-2 z-[70] animate-in fade-in zoom-in-95 duration-200">
-                    
+                        <div className="px-4 py-2 border-b border-gray-50 text-xs font-semibold text-gray-500">
+                            กรองตามพนักงาน
+                        </div>
+                        
                         {/* ปุ่มแสดงทั้งหมด */}
                         <button
                             onClick={() => { setSelectedWallmanName(""); setIsOpenForFilter(false); }}
@@ -288,7 +272,7 @@ export default function HistoryButton_() {
                         >
                             แสดงทั้งหมด
                         </button>
-                        
+
                         {/* รายชื่อพนักงาน */}
                         {wallmen.map(w => (
                             <button
@@ -299,12 +283,9 @@ export default function HistoryButton_() {
                                 {w.name}
                             </button>
                         ))}
-
                     </div>
                 </>
             )}
-
-        {/* สุด return */}
         </>
     );
 }

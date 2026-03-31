@@ -17,17 +17,29 @@ const supabaseAdmin = createClient(
 export async function PUT(req: Request) {
   try {
     const body = await req.json();
-    const { order_id, total_amount, items } = body;
+    const { order_id, total_amount, paid_amount, items, status_order = 'confirmed' } = body;
 
-    // 1. อัปเดตบิลหลัก (เปลี่ยนยอดรวม และเปลี่ยนสถานะเป็น confirmed)
+    // ดึงข้อมูลบิล ก่อนอัปเดต เพื่อเช็คสถานะเดิม
+    const { data: oldOrder, error: fetchError } = await supabaseAdmin
+      .from('orders')
+      .select('status_order, wallman_id')
+      .eq('id', order_id)
+      .single();
+
+    if (fetchError) throw fetchError;
+
+    // อัปเดตบิลหลัก เปลี่ยนยอดรวม และเปลี่ยนสถานะ
     const { error: orderError } = await supabaseAdmin
       .from('orders')
-      .update({ total_amount: total_amount, status_order: 'confirmed' })
+      .update({ total_amount: total_amount,
+                paid_amount: paid_amount,
+                status_order: status_order 
+              })
       .eq('id', order_id);
 
     if (orderError) throw orderError;
 
-    // 2. ลบรายการสินค้าเดิมในบิลนี้ทิ้งให้หมด
+    // ลบรายการสินค้าเดิมในบิลนี้ทิ้งให้หมด
     const { error: deleteError } = await supabaseAdmin
       .from('order_items')
       .delete()
@@ -35,7 +47,7 @@ export async function PUT(req: Request) {
 
     if (deleteError) throw deleteError;
 
-    // 3. นำรายการสินค้าใหม่ที่แก้ไขแล้ว บันทึกเข้าไปแทนที่
+    // นำรายการสินค้าใหม่ที่แก้ไขแล้ว บันทึกเข้าไปแทนที่
     const orderItems = items.map((item: EditItemPayload) => ({
       order_id: order_id,
       product_id: item.product_id,
@@ -49,6 +61,28 @@ export async function PUT(req: Request) {
       .insert(orderItems);
 
     if (insertError) throw insertError;
+    
+    // ถ้าเปลี่ยนสถานะมาเป็น confirmed ครั้งแรก ให้เพิ่มหนี้
+    if (oldOrder.status_order !== 'confirmed' && status_order === 'confirmed') {
+      const unpaidAmount = total_amount - paid_amount;
+      if (unpaidAmount > 0) {
+
+        // ดึงยอดหนี้ปัจจุบันของพนักงานออกมา
+        const { data: profile } = await supabaseAdmin
+          .from('profiles')
+          .select('current_debt')
+          .eq('id', oldOrder.wallman_id)
+          .single();
+        
+          const currentDebt = Number(profile?.current_debt || 0);
+
+          // บันทึกยอดหนี้ใหม่ (หนี้เดิม + ส่วนค้างชำระบิลนี้)
+          await supabaseAdmin
+            .from('profiles')
+            .update({ current_debt: currentDebt + unpaidAmount })
+            .eq('id', oldOrder.wallman_id);
+      }
+    }
 
     return NextResponse.json({ success: true });
 

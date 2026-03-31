@@ -32,6 +32,8 @@ export default function OrderButton_() {
     const [pickupTime, setPickupTime] = useState<string>("");           // เก็บเวลารับของ
     const [paid_amount, setPaidAmount] = useState<number>(0);           // เก็บจำนวนเงินที่ชำระ
 
+    const [isSubmitting, setIsSubmitting] = useState<boolean>(false);   // เก็บสถานะกำลังส่งข้อมูล
+
     // ดึงข้อมูลเมื่อเปิดหน้าต่าง
     useEffect(() => {
         if (!isOpen) return;
@@ -105,6 +107,10 @@ export default function OrderButton_() {
         const finalUserId = role === 'admin' ? selectedUserId : userProfile?.id;
         if (!finalUserId) return alert("กรุณาระบุผู้รับบิล");
 
+        if (isSubmitting) return; // ป้องกันการกดซ้ำซ้อน 
+
+        setIsSubmitting(true); // เริ่มสถานะ กำลังส่งข้อมูล
+
         const orderItems = Object.keys(cart).map(productId => {
             const product = products.find(p => p.id === productId);
             return {
@@ -139,8 +145,12 @@ export default function OrderButton_() {
             } else {
                 alert("เกิดข้อผิดพลาดในการบันทึกบิล");
             }
-        } catch (err) {
+        } 
+        catch (err) {
             console.error(err);
+        }
+        finally {
+            setIsSubmitting(false); // ไม่ว่าจะสำเร็จหรือพัง ก็ต้องคืนค่าปุ่มให้กลับมากดได้
         }
     };
     
@@ -270,7 +280,7 @@ export default function OrderButton_() {
                                         ${Object.keys(cart).length > 0 ? 'bg-orange-500 hover:bg-orange-600' : 'bg-gray-300 cursor-not-allowed'}
                                     `}
                                 >
-                                    ยืนยันเปิดบิล  {Object.keys(cart).length}   รายการ
+                                    {isSubmitting ? 'กำลังบันทึกข้อมูล' : `ยืนยันเปิดบิล  ${Object.keys(cart).length}  รายการ`}
                                 </button>
                             </div>
 
