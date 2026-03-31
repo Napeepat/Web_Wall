@@ -46,7 +46,7 @@ export async function GET(req: Request) {
           id, order_date, total_amount, paid_amount, status_order,
           order_items ( quantity, cost_at_sale )
         `)
-        .in('status_order', ['confirmed', 'completed'])
+        .in('status_order', ['confirmed', 'completed','pending'])
         .order('order_date', { ascending: false });
 
       if (error) throw error;

@@ -6,7 +6,7 @@ import { useAuth } from "@/app/login/useAuth";
 export default function Components_profile() {
   const [isOpen, setIsOpen] = useState(false);
 
-  const { userProfile, handleLogout } = useAuth();
+  const { userProfile, handleLogout, role } = useAuth();
   const isLoggedIn = !!userProfile;
 
   return (
@@ -54,12 +54,16 @@ export default function Components_profile() {
                   </p>
                 </div>
 
-                {/* แสดงเลขทะเบียนรถ */}
-                <div className="px-4 py-3 border-b border-gray-100 mb-1">
-                  <p className="text-sm font-semibold text-gray-900 truncate">
-                    {userProfile?.vehicle_reg || "ไม่มีข้อมูลทะเบียนรถ"}
-                  </p>
-                </div>
+                {role === 'wallman' && ( // แสดงเฉพาะสำหรับ Wallman
+                  <>
+                    {/* แสดงเลขทะเบียนรถ */}
+                    <div className="px-4 py-3 border-b border-gray-100 mb-1">
+                      <p className="text-sm font-semibold text-gray-900 truncate">
+                        {userProfile?.vehicle_reg || "ไม่มีข้อมูลทะเบียนรถ"}
+                      </p>
+                    </div>
+                  </>
+                )}
                 
 
                 {/* ปุ่มออกจากระบบ */}

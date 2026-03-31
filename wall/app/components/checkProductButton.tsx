@@ -3,6 +3,7 @@
 
 import { useState, useEffect }  from "react";
 import BackButton               from "@/app/components/allButton/backIsOpen";
+import { useAuth }              from "@/app/login/useAuth";
 
 export interface Product {
   id: string;
@@ -15,10 +16,13 @@ export interface Product {
 
 export default function CheckProductPrices_(){
 
+
+    const { role } = useAuth();
     const [isOpen, setIsOpen] = useState(false);
 
     const [products, setProducts] = useState<Product[]>([]);
     const [error, setError] = useState<string | null>(null);
+    const [isUpdating, setIsUpdating] = useState<string | null>(null); // ไว้ทำ Loading state ตอนกดปุ่ม
 
     useEffect(() => {
         if (!isOpen) return;
@@ -41,6 +45,45 @@ export default function CheckProductPrices_(){
         };
         fetchProducts();
     }, [isOpen]);
+
+    // ฟังก์ชันสำหรับอัปเดตสถานะของสินค้า
+    const toggleStatus = async (productId: string, currentStatus: 'true' | 'false') => {
+    const newStatus = currentStatus === 'true' ? 'false' : 'true';
+    setIsUpdating(productId); // ป้องกันการกดเบิ้ล
+
+    try {
+      const response = await fetch('/api/product', {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          id: productId,
+          statusproduct: newStatus,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error('ไม่สามารถอัปเดตสถานะได้');
+      }
+
+      // อัปเดต State ในหน้าเว็บให้ข้อมูลตรงกับฐานข้อมูล โดยไม่ต้องโหลดหน้าใหม่
+      setProducts(prevProducts =>
+        prevProducts.map(p =>
+          p.id === productId ? { ...p, statusproduct: newStatus } : p
+        )
+      );
+    } catch (err) {
+      console.error(err);
+      alert('เกิดข้อผิดพลาดในการเปลี่ยนสถานะ');
+    } finally {
+      setIsUpdating(null);
+    }
+  };
+
+  if (error) {
+    return <div className="p-4 text-center text-red-500">{error}</div>;
+  }
 
 
     if ( error ) {
@@ -74,6 +117,9 @@ export default function CheckProductPrices_(){
                                     <tr className="bg-blue-50 text-blue-900 text-sm">
                                         <th className="p-3 border-b border-gray-200">ชื่อสินค้า</th>
                                         <th className="p-3 border-b border-gray-200 text-right">ราคา</th>
+                                        {role === 'admin' && (
+                                            <th className="p-3 border-b border-gray-200 text-center">สถานะ</th>
+                                        )}
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -106,6 +152,28 @@ export default function CheckProductPrices_(){
                                         <td className={`p-3 text-right ${isNewCategory ? "pt-6" : ""}`}>
                                         {product.price.toLocaleString(undefined, { minimumFractionDigits: 2 })}
                                         </td>
+                                        
+                                        {/* เพิ่มปุ่มจัดการสถานะตรงนี้ */}
+                                        {role === 'admin' && (
+                                            <td className={`p-3 text-center ${isNewCategory ? "pt-6" : ""}`}>
+                                                <button
+                                                    onClick={() => toggleStatus(product.id, product.statusproduct)}
+                                                    disabled={isUpdating === product.id}
+                                                    className={`
+                                                    px-3 py-1 rounded-md text-xs font-semibold text-white transition-colors
+                                                    ${isUpdating === product.id ? 'bg-gray-400 cursor-not-allowed' : 
+                                                        isInactive ? 'bg-red-500 hover:bg-red-600' : 'bg-green-500 hover:bg-green-600'}
+                                                    `}
+                                                >
+                                                    {isUpdating === product.id 
+                                                    ? 'กำลังเปลี่ยน...' 
+                                                    : isInactive 
+                                                        ? 'สินค้าหมด' 
+                                                        : 'มีสินค้า'}
+                                                </button>
+                                            </td>
+                                        )}
+
                                     </tr>
                                     );
                                 })}

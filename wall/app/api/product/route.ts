@@ -20,3 +20,39 @@ export async function GET() {
     );
   }
 }
+
+
+// สำหรับอัปเดตข้อมูลสถานะของสินค้า
+export async function PATCH(request: Request) {
+  try {
+    const body = await request.json();
+    const { id, statusproduct } = body;
+
+    if (!id || !statusproduct) { 
+      return NextResponse.json(
+        { error: "Missing required fields (id, statusproduct)" },
+        { status: 400 }
+      );
+    }
+
+    
+    const numericId = Number(id); // แปลง id ให้เป็นตัวเลข
+
+    const { data, error } = await supabase 
+      .from("product")
+      .update({ statusproduct })
+      .eq("id", numericId) // <--- แก้ไขตรงนี้
+      .select();
+    //console.log("Supabase Result:", { data, error });
+
+    if (error) throw error;
+
+    return NextResponse.json(data);
+  } catch (error) {
+    console.error("Error updating product status:", error);
+    return NextResponse.json(
+      { error: "Failed to update product status" },
+      { status: 500 }
+    );
+  }
+}

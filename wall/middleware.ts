@@ -25,7 +25,6 @@ export async function middleware(request: NextRequest) {
 
   const { data: { user } } = await supabase.auth.getUser()
 
-  // 🛡️ Logic การป้องกัน:
   // ถ้าพยายามเข้าหน้าอื่นที่ไม่ใช่หน้าแรก (Login) แต่ยังไม่ได้ Login -> ไล่กลับไปหน้าแรก
   if (!user && request.nextUrl.pathname !== '/') {
     return NextResponse.redirect(new URL('/', request.url))
@@ -39,5 +38,5 @@ export async function middleware(request: NextRequest) {
 
 // ระบุว่าให้ Middleware ทำงานกับหน้าไหนบ้าง (ป้องกันทุกหน้ายกเว้นหน้า Login และ API)
 export const config = {
-  matcher: ['/((?!api|_next/static|_next/image|favicon.ico).*)'],
+  matcher: ['/((?!api|_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)',],
 }
