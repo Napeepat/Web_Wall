@@ -8,7 +8,6 @@ services:
       - "3000:3000"
     restart: always
     environment:
-      # นำค่าจากไฟล์ .env ของคุณมาใส่ตรงนี้
       - NEXT_PUBLIC_SUPABASE_URL=https://xksgxriixepseimwniud.supabase.co
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhrc2d4cmlpeGVwc2VpbXduaXVkIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzQ2ODkyMzcsImV4cCI6MjA5MDI2NTIzN30.AlkX80-LmXq7s6N8BVK1IVlRu-RFzfO4sxPSAiDrZts
       - SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inhrc2d4cmlpeGVwc2VpbXduaXVkIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc3NDY4OTIzNywiZXhwIjoyMDkwMjY1MjM3fQ.WiP8kWEgl_IL-eEFMFsjECCi3qylLiEyla4gegBURak

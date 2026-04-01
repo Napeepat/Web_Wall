@@ -5,11 +5,11 @@ import { useAuth }      from "@/app/login/useAuth";
 import CheckProductPrices_  from "@/app/components/checkProductButton"
 
 import OrderButton_         from "@/app/components/order/orderButton";
-//import OrderButton_         from "@/app/components/order/temp";
 
-import HistoryButton_ from "@/app/components/history/historyButton";
-//import HistoryButton_ from "@/app/components/history/temp";
-import DashboardStats from "@/app/components/dashboard/dashboardStats";
+import HistoryButton_       from "@/app/components/history/historyButton";
+import DashboardStats       from "@/app/components/dashboard/dashboardStats";
+import AdminWallmanStats    from "@/app/components/dashboard/adminWallmanStats";
+import PayDebtButton        from "@/app/components/dashboard/payDebtButton";
 
 
 
@@ -29,6 +29,9 @@ export default function DashboardPage() {
           <OrderButton_ />
 
           <HistoryButton_ />
+
+          {role === 'admin' && <PayDebtButton />}
+          {role === 'admin' && <AdminWallmanStats />}
 
 
         </div>

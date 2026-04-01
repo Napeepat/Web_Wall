@@ -1,10 +1,10 @@
-# ใช้ Node.js เวอร์ชัน 18 แบบ Alpine (ขนาดเล็ก)
+# ใช้ Node.js เวอร์ชัน 18 แบบ Alpine ขนาดเล็ก
 FROM node:18-alpine
 
 # กำหนดโฟลเดอร์หลักใน Container
 WORKDIR /app
 
-# คัดลอกไฟล์ package.json มาก่อน
+# คัดลอกไฟล์ package.json
 COPY package.json package-lock.json* ./
 
 # ติดตั้ง dependencies
@@ -21,3 +21,5 @@ EXPOSE 3000
 
 # รันแอปพลิเคชัน
 CMD ["npm", "start"]
+
+

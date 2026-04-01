@@ -17,7 +17,7 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: "Missing parameters" }, { status: 400 });
     }
 
-    if (role === 'wallman') { // ดึงข้อมูลดิบของ Wallman
+    if (role === 'wallman') { // ดึงข้อมูลของ Wallman
       const { data: orders, error } = await supabaseAdmin
         .from('orders')
         .select('id, order_date, total_amount, paid_amount, status_order')
@@ -39,7 +39,7 @@ export async function GET(req: Request) {
       });
     }
 
-    if (role === 'admin') { // ดึงข้อมูลดิบของ Admin
+    if (role === 'admin') { // ดึงข้อมูลของ Admin
       const { data: orders, error } = await supabaseAdmin
         .from('orders')
         .select(`
