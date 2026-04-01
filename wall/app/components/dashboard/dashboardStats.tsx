@@ -171,10 +171,10 @@ export default function DashboardStats() {
                     </div>
 
                     {/* ค่าคอมโดยประมาณ */}
-                    {/*    <div className="bg-white p-4 rounded-xl shadow-sm border border-green-100">
+                    {    <div className="bg-white p-4 rounded-xl shadow-sm border border-green-100">
                             <div className="text-sm text-gray-500 mb-1">ค่าคอมโดยประมาณ</div>
                             <div className="text-xl font-bold text-green-600">{stats.commission.toLocaleString()}</div>
-                        </div> */}
+                        </div> }
 
                     {/* จำนวนครั้งลงของเดือนนี้ */}
                     <div className="bg-white p-4 rounded-xl shadow-sm border border-orange-100">
